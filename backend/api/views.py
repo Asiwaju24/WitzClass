@@ -74,14 +74,16 @@ class SchoolDetailView(generics.RetrieveUpdateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_object(self):
+        # Admin can only access THEIR OWN school
         return get_object_or_404(School, admin=self.request.user)
 
 
 class SchoolOverviewView(APIView):
-    """School admin dashboard - all teachers, classrooms, recent submissions"""
+    """School admin dashboard - only shows data belonging to the requesting admin's school"""
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
+        # Strictly scoped to the requesting user's school only
         school = get_object_or_404(School, admin=request.user)
         teachers = SchoolTeacher.objects.filter(school=school).select_related('teacher')
         classrooms = Classroom.objects.filter(school=school)
@@ -129,10 +131,13 @@ class ClassroomListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         user = self.request.user
         if user.role in ('teacher', 'independent_tutor'):
+            # Teachers only see their OWN classrooms
             return Classroom.objects.filter(teacher=user)
         if user.role == 'school_admin':
+            # School admin only sees classrooms belonging to THEIR school
             school = get_object_or_404(School, admin=user)
             return Classroom.objects.filter(school=school)
+        # Students only see classrooms they are enrolled in
         return Classroom.objects.filter(students__student=user)
 
     def perform_create(self, serializer):
@@ -148,9 +153,24 @@ class ClassroomListCreateView(generics.ListCreateAPIView):
 
 
 class ClassroomDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    SECURITY FIX: get_queryset now scopes classrooms to the requesting user only.
+    A teacher from School A cannot access, edit, or delete a classroom from School B.
+    """
     serializer_class = ClassroomSerializer
     permission_classes = [permissions.IsAuthenticated]
-    queryset = Classroom.objects.all()
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role in ('teacher', 'independent_tutor'):
+            # Teachers can only retrieve/update/delete their OWN classrooms
+            return Classroom.objects.filter(teacher=user)
+        if user.role == 'school_admin':
+            # School admin can only access classrooms within THEIR school
+            school = get_object_or_404(School, admin=user)
+            return Classroom.objects.filter(school=school)
+        # Students can only view classrooms they are enrolled in (read-only)
+        return Classroom.objects.filter(students__student=user)
 
 
 class JoinClassroomView(APIView):
@@ -171,12 +191,38 @@ class JoinClassroomView(APIView):
         return Response({'message': f'Successfully joined {classroom.name}!', 'classroom': ClassroomSerializer(classroom).data})
 
 
-class ClassroomStudentsView(generics.ListAPIView):
-    """List students in a classroom"""
+class ClassroomStudentsView(APIView):
+    """
+    SECURITY FIX: Only the classroom's teacher, the school admin of that school,
+    or an enrolled student can view the student list. No outsider access.
+    """
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, pk):
         classroom = get_object_or_404(Classroom, pk=pk)
+        user = request.user
+
+        # Check if user is the classroom's teacher
+        is_teacher = (user == classroom.teacher)
+
+        # Check if user is the school admin of the school this classroom belongs to
+        is_school_admin = (
+            user.role == 'school_admin' and
+            classroom.school is not None and
+            hasattr(user, 'school') and
+            classroom.school.admin == user
+        )
+
+        # Check if user is an enrolled student in this classroom
+        is_enrolled_student = ClassroomStudent.objects.filter(
+            classroom=classroom, student=user
+        ).exists()
+
+        if not (is_teacher or is_school_admin or is_enrolled_student):
+            raise permissions.PermissionDenied(
+                'You do not have permission to view students in this classroom.'
+            )
+
         students = ClassroomStudent.objects.filter(classroom=classroom).select_related('student')
         return Response([{
             'id': m.student.id,
@@ -194,7 +240,24 @@ class AssignmentListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Assignment.objects.filter(classroom_id=self.kwargs['classroom_id'])
+        classroom_id = self.kwargs['classroom_id']
+        user = self.request.user
+
+        # Verify the user actually belongs to this classroom before listing assignments
+        if user.role in ('teacher', 'independent_tutor'):
+            classroom = get_object_or_404(Classroom, id=classroom_id, teacher=user)
+        elif user.role == 'school_admin':
+            school = get_object_or_404(School, admin=user)
+            classroom = get_object_or_404(Classroom, id=classroom_id, school=school)
+        else:
+            # Student must be enrolled in this classroom
+            classroom = get_object_or_404(
+                Classroom,
+                id=classroom_id,
+                students__student=user
+            )
+
+        return Assignment.objects.filter(classroom=classroom)
 
     def perform_create(self, serializer):
         classroom = get_object_or_404(Classroom, id=self.kwargs['classroom_id'])
@@ -208,9 +271,25 @@ class AssignmentListCreateView(generics.ListCreateAPIView):
 
 
 class AssignmentDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    SECURITY FIX: get_queryset scopes assignments to the requesting user only.
+    Teacher A cannot edit or delete Teacher B's assignments.
+    Students can only read assignments from classrooms they are enrolled in.
+    """
     serializer_class = AssignmentSerializer
     permission_classes = [permissions.IsAuthenticated]
-    queryset = Assignment.objects.all()
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role in ('teacher', 'independent_tutor'):
+            # Teachers can only access assignments in their OWN classrooms
+            return Assignment.objects.filter(classroom__teacher=user)
+        if user.role == 'school_admin':
+            # School admin can only access assignments within their school's classrooms
+            school = get_object_or_404(School, admin=user)
+            return Assignment.objects.filter(classroom__school=school)
+        # Students can only access assignments in classrooms they are enrolled in
+        return Assignment.objects.filter(classroom__students__student=user)
 
 
 class ToggleAssignmentView(APIView):
@@ -219,8 +298,11 @@ class ToggleAssignmentView(APIView):
 
     def post(self, request, pk):
         assignment = get_object_or_404(Assignment, pk=pk)
+        # Only the classroom's own teacher can toggle the assignment
         if request.user != assignment.classroom.teacher:
-            raise permissions.PermissionDenied()
+            raise permissions.PermissionDenied(
+                'Only the teacher of this classroom can open or close assignments.'
+            )
         assignment.is_open = not assignment.is_open
         assignment.save()
         status_text = 'opened' if assignment.is_open else 'closed'
@@ -236,8 +318,17 @@ class SubmissionListView(generics.ListAPIView):
     def get_queryset(self):
         assignment = get_object_or_404(Assignment, id=self.kwargs['assignment_id'])
         user = self.request.user
+
+        # Teacher of this classroom sees all submissions
         if user == assignment.classroom.teacher:
             return Submission.objects.filter(assignment=assignment).select_related('student')
+
+        # School admin of the school this classroom belongs to sees all submissions
+        if user.role == 'school_admin' and hasattr(user, 'school'):
+            if assignment.classroom.school and assignment.classroom.school.admin == user:
+                return Submission.objects.filter(assignment=assignment).select_related('student')
+
+        # Students only see their OWN submission
         return Submission.objects.filter(assignment=assignment, student=user)
 
 
@@ -250,6 +341,14 @@ class SubmitAssignmentView(APIView):
 
         if request.user.role != 'student':
             return Response({'error': 'Only students can submit assignments.'}, status=400)
+
+        # Verify the student is actually enrolled in this assignment's classroom
+        is_enrolled = ClassroomStudent.objects.filter(
+            classroom=assignment.classroom,
+            student=request.user
+        ).exists()
+        if not is_enrolled:
+            return Response({'error': 'You are not enrolled in this classroom.'}, status=403)
 
         if not assignment.is_accepting:
             return Response({'error': 'This assignment is closed and no longer accepting submissions.'}, status=400)
@@ -285,8 +384,12 @@ class GradeSubmissionView(APIView):
 
     def patch(self, request, pk):
         submission = get_object_or_404(Submission, pk=pk)
+
+        # Only the teacher of the classroom this submission belongs to can grade it
         if request.user != submission.assignment.classroom.teacher:
-            raise permissions.PermissionDenied()
+            raise permissions.PermissionDenied(
+                'Only the teacher of this classroom can grade submissions.'
+            )
 
         s = GradeSerializer(submission, data=request.data, partial=True)
         s.is_valid(raise_exception=True)
@@ -306,12 +409,18 @@ class NotSubmittedView(APIView):
 
     def get(self, request, assignment_id):
         assignment = get_object_or_404(Assignment, id=assignment_id)
+
+        # Only the classroom's own teacher can see who hasn't submitted
         if request.user != assignment.classroom.teacher:
-            raise permissions.PermissionDenied()
+            raise permissions.PermissionDenied(
+                'Only the teacher of this classroom can view pending submissions.'
+            )
+
         submitted_ids = assignment.submissions.values_list('student_id', flat=True)
         not_submitted = ClassroomStudent.objects.filter(
             classroom=assignment.classroom
         ).exclude(student_id__in=submitted_ids).select_related('student')
+
         return Response([{
             'id': m.student.id,
             'username': m.student.username,
@@ -327,11 +436,14 @@ class NotificationListView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        # Users only ever see their OWN notifications
         return Notification.objects.filter(user=self.request.user)
 
 
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
 def mark_notifications_read(request):
+    # Only marks the requesting user's own notifications as read
     Notification.objects.filter(user=request.user, is_read=False).update(is_read=True)
     return Response({'message': 'All marked as read.'})
+    
