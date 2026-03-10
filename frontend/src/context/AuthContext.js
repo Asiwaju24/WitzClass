@@ -1,52 +1,43 @@
-import { createContext, useContext, useState, useEffect } from 'react';
-import API from '../api/client';
+import React, { createContext, useState, useEffect, useContext } from 'react';
+import client from '../api/client';
 
 const AuthContext = createContext();
 
-export function AuthProvider({ children }) {
+export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-  const token = localStorage.getItem('access');
+    const token = localStorage.getItem('access');
+    if (token) {
+      client.get('/auth/me/')
+        .then(res => setUser(res.data))
+        .catch(() => {
+          localStorage.clear();
+          setUser(null);
+        })
+        .finally(() => setLoading(false));
+    } else {
+      setLoading(false);
+    }
+  }, []);
 
-  if (!token) {
-    setLoading(false);
-    return;
-  }
-
-  API.get('/auth/me/')
-    .then((r) => setUser(r.data))
-    .catch((err) => {
-      if (err.response?.status === 401) {
-        localStorage.clear();
-        setUser(null);
-      }
-    })
-    .finally(() => setLoading(false));
-
-}, []);
-
-  const login = async (username, password) => {
-    const { data } = await API.post('/auth/login/', { username, password });
-    localStorage.setItem('access', data.access);
-    localStorage.setItem('refresh', data.refresh);
-    const me = await API.get('/auth/me/');
-    setUser(me.data);
-    return me.data;
+  const login = (userData, accessToken, refreshToken) => {
+    localStorage.setItem('access', accessToken);
+    localStorage.setItem('refresh', refreshToken);
+    setUser(userData);
   };
 
-  const register = async (payload) => {
-    const { data } = await API.post('/auth/register/', payload);
-    localStorage.setItem('access', data.access);
-    localStorage.setItem('refresh', data.refresh);
-    setUser(data.user);
-    return data.user;
+  const logout = () => {
+    localStorage.clear();
+    setUser(null);
   };
 
-  const logout = () => { localStorage.clear(); setUser(null); };
-
-  return <AuthContext.Provider value={{ user, loading, login, register, logout }}>{children}</AuthContext.Provider>;
-}
+  return (
+    <AuthContext.Provider value={{ user, login, logout, loading }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
 
 export const useAuth = () => useContext(AuthContext);
