@@ -52,17 +52,11 @@ export default function Layout() {
   const navigate = useNavigate();
   const [unread, setUnread] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [hasSchool, setHasSchool] = useState(true);
 
   useEffect(() => {
     API.get('/notifications/')
       .then(r => setUnread(r.data.filter(n => !n.is_read).length))
       .catch(() => {});
-
-    // Check if teacher has joined a school yet
-    if (user?.role === 'teacher') {
-      API.get('/school/me/').catch(() => setHasSchool(false));
-    }
 
     try {
       const wsUrl = `wss://witzclass.onrender.com/ws/notifications/?token=${localStorage.getItem('access')}`;
@@ -98,8 +92,8 @@ export default function Layout() {
         {unread > 0 && <span className="nav-badge">{unread}</span>}
       </NavLink>
 
-      {/* Show school join prompt for teachers without a school */}
-      {user?.role === 'teacher' && !hasSchool && <JoinSchoolInline />}
+      {/* Always show join school for teachers — backend blocks duplicates */}
+      {user?.role === 'teacher' && <JoinSchoolInline />}
     </>
   );
 
@@ -173,65 +167,4 @@ export default function Layout() {
       </div>
     </div>
   );
-  }          </div>
-        </div>
-        <nav className="sidebar-nav">
-          <div className="nav-section">
-            <div className="nav-section-title">Navigation</div>
-            {navLinks}
-          </div>
-        </nav>
-        <div className="sidebar-footer">
-          <div className="user-card">
-            <div className="user-avatar">{user?.username?.[0]?.toUpperCase()}</div>
-            <div className="user-info">
-              <div className="user-name">{user?.first_name || user?.username}</div>
-              <div className="user-role">{user?.role?.replace('_', ' ')}</div>
-            </div>
-            <button className="logout-btn" onClick={handleLogout}>
-              <MdLogout size={17} />
-            </button>
-          </div>
-        </div>
-      </aside>
-
-      {/* Mobile Header */}
-      <div className="mobile-header">
-        <button className="hamburger" onClick={() => setMenuOpen(!menuOpen)}>
-          {menuOpen ? <MdClose size={24} /> : <MdMenu size={24} />}
-        </button>
-        <span className="mobile-logo">WitzClass</span>
-        <span style={{ fontSize: 13, fontWeight: 600 }}>👋 {user?.first_name || user?.username}</span>
-      </div>
-
-      {/* Mobile Overlay Menu */}
-      {menuOpen && (
-        <div className="mobile-overlay" onClick={() => setMenuOpen(false)}>
-          <div className="mobile-menu" onClick={e => e.stopPropagation()}>
-            <div className="user-card" style={{ marginBottom: 20 }}>
-              <div className="user-avatar">{user?.username?.[0]?.toUpperCase()}</div>
-              <div className="user-info">
-                <div className="user-name">{user?.first_name || user?.username}</div>
-                <div className="user-role">{user?.role?.replace('_', ' ')}</div>
-              </div>
-            </div>
-            <nav className="sidebar-nav">{navLinks}</nav>
-            <button className="btn btn-secondary" style={{ marginTop: 20, width: '100%' }} onClick={handleLogout}>
-              <MdLogout /> Logout
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div className="main-content">
-        <header className="topbar desktop-topbar">
-          <div className="topbar-title">WitzClass</div>
-          <span style={{ fontSize: 13, color: 'var(--text2)', fontWeight: 600 }}>
-            👋 {user?.first_name || user?.username}
-          </span>
-        </header>
-        <main className="page"><Outlet /></main>
-      </div>
-    </div>
-  );
-        }
+    }
