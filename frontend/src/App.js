@@ -34,18 +34,19 @@ const PublicRoute = ({ children }) => {
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
       <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
-      <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
-        <Route path="dashboard" element={<Dashboard />} />
-        <Route path="classrooms" element={<Classrooms />} />
-        <Route path="classrooms/:id" element={<ClassroomDetail />} />
-        <Route path="assignments/:id" element={<AssignmentDetail />} />
-        <Route path="notifications" element={<Notifications />} />
-        <Route path="school-admin" element={<SchoolAdmin />} />
+      <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/classrooms" element={<Classrooms />} />
+        <Route path="/classrooms/:id" element={<ClassroomDetail />} />
+        <Route path="/assignments/:id" element={<AssignmentDetail />} />
+        <Route path="/notifications" element={<Notifications />} />
+        <Route path="/school-admin" element={<SchoolAdmin />} />
+        <Route path="/school" element={<SchoolAdmin />} />
       </Route>
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
