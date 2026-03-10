@@ -11,9 +11,20 @@ export default function Dashboard() {
   const isAdmin = user?.role === 'school_admin';
 
   useEffect(() => {
-    API.get('/classrooms/').then(r => setClassrooms(r.data)).catch(() => {});
-    API.get('/notifications/').then(r => setNotifs(r.data)).catch(() => {});
-  }, []);
+  API.get('/classrooms/')
+    .then(r => {
+      const data = Array.isArray(r.data) ? r.data : r.data.results;
+      setClassrooms(data || []);
+    })
+    .catch(console.error);
+
+  API.get('/notifications/')
+    .then(r => {
+      const data = Array.isArray(r.data) ? r.data : r.data.results;
+      setNotifs(data || []);
+    })
+    .catch(console.error);
+}, []);
 
   const unread = notifs.filter(n => !n.is_read).length;
   const roleEmoji = { school_admin: '🏫', teacher: '👨‍🏫', independent_tutor: '🧑‍💻', student: '🎒' };
