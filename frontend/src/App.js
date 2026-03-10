@@ -28,7 +28,7 @@ const PrivateRoute = ({ children }) => {
 const PublicRoute = ({ children }) => {
   const { user, loading } = useAuth();
   if (loading) return null;
-  return !user ? children : <Navigate to="/dashboard" replace />;
+  return !user ? children : <Navigate to="/" replace />;
 };
 
 function AppRoutes() {
