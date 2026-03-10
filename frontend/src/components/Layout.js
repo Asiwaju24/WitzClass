@@ -27,14 +27,14 @@ function JoinSchoolInline() {
 
   if (joined) return (
     <div style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 700, padding: 12 }}>
-      ✅ Joined school!
+      Joined school!
     </div>
   );
 
   return (
     <div style={{ margin: '12px 0', padding: 12, background: 'var(--primary-light)', borderRadius: 10, border: '1px solid var(--primary)' }}>
       <div style={{ fontWeight: 700, color: 'var(--primary)', fontSize: 13, marginBottom: 8 }}>
-        🏫 Join a School
+        Join a School
       </div>
       <form onSubmit={handleJoin} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <input
@@ -58,6 +58,7 @@ export default function Layout() {
   const navigate = useNavigate();
   const [unread, setUnread] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [hasSchool, setHasSchool] = useState(false);
 
   const isTeacher = ['teacher', 'independent_tutor'].includes(user?.role);
   const isAdmin = user?.role === 'school_admin';
@@ -67,8 +68,14 @@ export default function Layout() {
       .then(r => setUnread(r.data.filter(n => !n.is_read).length))
       .catch(() => {});
 
+    if (isTeacher) {
+      API.get('/school/me/')
+        .then(() => setHasSchool(true))
+        .catch(() => setHasSchool(false));
+    }
+
     try {
-      const wsUrl = `wss://witzclass.onrender.com/ws/notifications/?token=${localStorage.getItem('access')}`;
+      const wsUrl = 'wss://witzclass.onrender.com/ws/notifications/?token=' + localStorage.getItem('access');
       const ws = new WebSocket(wsUrl);
       ws.onmessage = () => setUnread(p => p + 1);
       return () => ws.close();
@@ -82,30 +89,28 @@ export default function Layout() {
 
   const navLinks = (
     <>
-      <NavLink to="/" end className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} onClick={() => setMenuOpen(false)}>
+      <NavLink to="/" end className={({ isActive }) => 'nav-link' + (isActive ? ' active' : '')} onClick={() => setMenuOpen(false)}>
         <MdDashboard /> Dashboard
       </NavLink>
-      <NavLink to="/classrooms" className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} onClick={() => setMenuOpen(false)}>
+      <NavLink to="/classrooms" className={({ isActive }) => 'nav-link' + (isActive ? ' active' : '')} onClick={() => setMenuOpen(false)}>
         <MdClass /> {isTeacher ? 'My Classrooms' : isAdmin ? 'All Classrooms' : 'My Classes'}
       </NavLink>
       {isAdmin && (
-        <NavLink to="/school" className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} onClick={() => setMenuOpen(false)}>
+        <NavLink to="/school" className={({ isActive }) => 'nav-link' + (isActive ? ' active' : '')} onClick={() => setMenuOpen(false)}>
           <MdSchool /> School Overview
         </NavLink>
       )}
-      <NavLink to="/notifications" className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`} onClick={() => setMenuOpen(false)}>
+      <NavLink to="/notifications" className={({ isActive }) => 'nav-link' + (isActive ? ' active' : '')} onClick={() => setMenuOpen(false)}>
         <MdNotifications /> Notifications
         {unread > 0 && <span className="nav-badge">{unread}</span>}
       </NavLink>
 
-      {/* Show for ALL teacher types */}
-      {isTeacher && <JoinSchoolInline />}
+      {isTeacher && !hasSchool && <JoinSchoolInline />}
     </>
   );
 
   return (
     <div className="layout">
-      {/* Desktop Sidebar */}
       <aside className="sidebar">
         <div className="sidebar-logo">
           <div className="logo-mark">W</div>
@@ -134,16 +139,14 @@ export default function Layout() {
         </div>
       </aside>
 
-      {/* Mobile Header */}
       <div className="mobile-header">
         <button className="hamburger" onClick={() => setMenuOpen(!menuOpen)}>
           {menuOpen ? <MdClose size={24} /> : <MdMenu size={24} />}
         </button>
         <span className="mobile-logo">WitzClass</span>
-        <span style={{ fontSize: 13, fontWeight: 600 }}>👋 {user?.first_name || user?.username}</span>
+        <span style={{ fontSize: 13, fontWeight: 600 }}>Hi {user?.first_name || user?.username}</span>
       </div>
 
-      {/* Mobile Overlay Menu */}
       {menuOpen && (
         <div className="mobile-overlay" onClick={() => setMenuOpen(false)}>
           <div className="mobile-menu" onClick={e => e.stopPropagation()}>
@@ -166,11 +169,11 @@ export default function Layout() {
         <header className="topbar desktop-topbar">
           <div className="topbar-title">WitzClass</div>
           <span style={{ fontSize: 13, color: 'var(--text2)', fontWeight: 600 }}>
-            👋 {user?.first_name || user?.username}
+            Hi {user?.first_name || user?.username}
           </span>
         </header>
         <main className="page"><Outlet /></main>
       </div>
     </div>
   );
-}
+      }
