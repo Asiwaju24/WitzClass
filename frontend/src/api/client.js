@@ -1,16 +1,16 @@
 import axios from 'axios';
 
+const BASE = process.env.REACT_APP_API_URL || 'https://witzclass.onrender.com/api';
+
 const API = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || '/api'
+  baseURL: BASE
 });
 
 API.interceptors.request.use(config => {
   const token = localStorage.getItem('access');
-
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
-
   return config;
 });
 
@@ -27,7 +27,7 @@ API.interceptors.response.use(
       if (refresh) {
         try {
           const { data } = await axios.post(
-            `${process.env.REACT_APP_API_URL || '/api'}/auth/refresh/`,
+            `${BASE}/auth/token/refresh/`,
             { refresh }
           );
 
@@ -39,10 +39,13 @@ API.interceptors.response.use(
           };
 
           return API(original);
-        } catch (err) {
-          console.error("Refresh failed", err);
+        } catch (e) {
           localStorage.clear();
+          window.location.href = '/login';
         }
+      } else {
+        localStorage.clear();
+        window.location.href = '/login';
       }
     }
 
