@@ -25,22 +25,28 @@ function JoinSchoolInline() {
     }
   };
 
-  if (joined) return <div style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 700 }}>✅ Joined!</div>;
+  if (joined) return (
+    <div style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 700, padding: 12 }}>
+      ✅ Joined school!
+    </div>
+  );
 
   return (
-    <div style={{ margin: '12px 0', padding: 12, background: 'var(--primary-light)', borderRadius: 10 }}>
-      <div style={{ fontWeight: 700, color: 'var(--primary)', fontSize: 13, marginBottom: 8 }}>🏫 Join a School</div>
-      <form onSubmit={handleJoin} style={{ display: 'flex', gap: 6 }}>
+    <div style={{ margin: '12px 0', padding: 12, background: 'var(--primary-light)', borderRadius: 10, border: '1px solid var(--primary)' }}>
+      <div style={{ fontWeight: 700, color: 'var(--primary)', fontSize: 13, marginBottom: 8 }}>
+        🏫 Join a School
+      </div>
+      <form onSubmit={handleJoin} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <input
-          style={{ flex: 1, padding: '6px 8px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 12, fontFamily: 'monospace', textTransform: 'uppercase' }}
+          style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 13, fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: 2 }}
           placeholder="SCH-XXXXX"
           value={code}
           onChange={e => setCode(e.target.value)}
           required
         />
         <button className="btn btn-primary" type="submit" disabled={loading}
-          style={{ padding: '6px 10px', fontSize: 12 }}>
-          {loading ? '...' : 'Join'}
+          style={{ width: '100%', justifyContent: 'center', fontSize: 13 }}>
+          {loading ? 'Joining...' : 'Join School'}
         </button>
       </form>
     </div>
@@ -52,6 +58,9 @@ export default function Layout() {
   const navigate = useNavigate();
   const [unread, setUnread] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const isTeacher = ['teacher', 'independent_tutor'].includes(user?.role);
+  const isAdmin = user?.role === 'school_admin';
 
   useEffect(() => {
     API.get('/notifications/')
@@ -65,9 +74,6 @@ export default function Layout() {
       return () => ws.close();
     } catch (e) {}
   }, [user]);
-
-  const isTeacher = ['teacher', 'independent_tutor'].includes(user?.role);
-  const isAdmin = user?.role === 'school_admin';
 
   const handleLogout = () => {
     logout();
@@ -92,8 +98,8 @@ export default function Layout() {
         {unread > 0 && <span className="nav-badge">{unread}</span>}
       </NavLink>
 
-      {/* Always show join school for teachers — backend blocks duplicates */}
-      {user?.role === 'teacher' && <JoinSchoolInline />}
+      {/* Show for ALL teacher types */}
+      {isTeacher && <JoinSchoolInline />}
     </>
   );
 
@@ -167,4 +173,4 @@ export default function Layout() {
       </div>
     </div>
   );
-    }
+        }
