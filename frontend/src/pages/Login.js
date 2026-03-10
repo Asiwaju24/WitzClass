@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useAuth } from '../context/AuthContext';
+import API from '../api/client';
 
 export default function Login() {
   const [form, setForm] = useState({ username: '', password: '' });
@@ -13,10 +14,17 @@ export default function Login() {
     e.preventDefault();
     setLoading(true);
     try {
-      await login(form.username, form.password);
+      const { data } = await API.post('/auth/login/', form);
+      const me = await API.get('/auth/me/', {
+        headers: { Authorization: `Bearer ${data.access}` }
+      });
+      login(me.data, data.access, data.refresh);
       navigate('/');
-    } catch { toast.error('Invalid username or password.'); }
-    finally { setLoading(false); }
+    } catch {
+      toast.error('Invalid username or password.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -60,4 +68,4 @@ export default function Login() {
       </div>
     </div>
   );
-}
+                                      }}
