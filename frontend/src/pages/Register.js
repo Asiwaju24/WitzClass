@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useAuth } from '../context/AuthContext';
+import API from '../api/client';
 
 const ROLES = [
   { value: 'student', emoji: '🎒', label: 'Student', desc: 'Join classes & submit assignments' },
@@ -13,20 +14,28 @@ const ROLES = [
 export default function Register() {
   const [form, setForm] = useState({ username: '', email: '', password: '', first_name: '', last_name: '', role: 'student' });
   const [loading, setLoading] = useState(false);
-  const { register } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      await register(form);
+      const { data } = await API.post('/auth/register/', form);
+      login(data.user, data.access, data.refresh);
       toast.success('Account created! Welcome to WitzClass 🎉');
       navigate('/');
     } catch (err) {
       const msg = err.response?.data;
-      toast.error(typeof msg === 'object' ? Object.values(msg)[0]?.[0] : 'Registration failed.');
-    } finally { setLoading(false); }
+      if (typeof msg === 'object') {
+        const first = Object.values(msg)[0];
+        toast.error(Array.isArray(first) ? first[0] : first);
+      } else {
+        toast.error('Registration failed. Please try again.');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -98,4 +107,4 @@ export default function Register() {
       </div>
     </div>
   );
-}
+    }
