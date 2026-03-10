@@ -10,11 +10,19 @@ export default function Layout() {
   const [unread, setUnread] = useState(0);
 
   useEffect(() => {
-    API.get('/notifications/').then(r => setUnread(r.data.filter(n => !n.is_read).length)).catch(() => {});
-    const ws = new WebSocket(`ws://${window.location.host}/ws/notifications/`);
+  API.get('/notifications/')
+    .then(r => setUnread(r.data.filter(n => !n.is_read).length))
+    .catch(() => {});
+
+  try {
+    const wsUrl = `wss://witzclass.onrender.com/ws/notifications/?token=${localStorage.getItem('access')}`;
+    const ws = new WebSocket(wsUrl);
     ws.onmessage = () => setUnread(p => p + 1);
     return () => ws.close();
-  }, []);
+  } catch (e) {
+    console.log('WebSocket unavailable:', e);
+  }
+}, []);
 
   const isTeacher = ['teacher', 'independent_tutor'].includes(user?.role);
   const isAdmin = user?.role === 'school_admin';
