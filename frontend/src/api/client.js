@@ -27,7 +27,7 @@ API.interceptors.response.use(
       if (refresh) {
         try {
           const { data } = await axios.post(
-            `${BASE}/auth/token/refresh/`,
+            `${BASE}/auth/refresh/`,
             { refresh }
           );
 
