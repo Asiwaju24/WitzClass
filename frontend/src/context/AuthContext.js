@@ -8,10 +8,24 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (localStorage.getItem('access')) {
-      API.get('/auth/me/').then(r => setUser(r.data)).catch(() => localStorage.clear()).finally(() => setLoading(false));
-    } else setLoading(false);
-  }, []);
+  const token = localStorage.getItem('access');
+
+  if (!token) {
+    setLoading(false);
+    return;
+  }
+
+  API.get('/auth/me/')
+    .then((r) => setUser(r.data))
+    .catch((err) => {
+      if (err.response?.status === 401) {
+        localStorage.clear();
+        setUser(null);
+      }
+    })
+    .finally(() => setLoading(false));
+
+}, []);
 
   const login = async (username, password) => {
     const { data } = await API.post('/auth/login/', { username, password });
