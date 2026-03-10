@@ -6,33 +6,34 @@ const BASE = process.env.REACT_APP_API_URL || 'https://witzclass.onrender.com/ap
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('user');
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const token = localStorage.getItem('access');
     const refresh = localStorage.getItem('refresh');
-    const savedUser = localStorage.getItem('user');
 
     if (!token && !refresh) {
       setLoading(false);
       return;
     }
 
-    // Use saved user immediately to avoid flash
-    if (savedUser) {
-      try { setUser(JSON.parse(savedUser)); } catch {}
-    }
-
-    // Try to fetch fresh user data
     client.get('/auth/me/')
       .then(res => {
         setUser(res.data);
         localStorage.setItem('user', JSON.stringify(res.data));
+        setLoading(false);
       })
-      .catch(async () => {
-        // Access token failed — try refreshing
-        if (refresh) {
+      .catch(async (err) => {
+        const status = err.response?.status;
+
+        if (status === 401 && refresh) {
+          // Token expired — try refresh
           try {
             const { data } = await axios.post(`${BASE}/auth/refresh/`, { refresh });
             localStorage.setItem('access', data.access);
@@ -42,16 +43,19 @@ export const AuthProvider = ({ children }) => {
             setUser(me.data);
             localStorage.setItem('user', JSON.stringify(me.data));
           } catch {
-            // Refresh also failed — truly logged out
+            // Refresh failed — clear and logout
             localStorage.clear();
             setUser(null);
           }
-        } else {
+        } else if (status === 401) {
+          // No refresh token — clear
           localStorage.clear();
           setUser(null);
         }
-      })
-      .finally(() => setLoading(false));
+        // For network errors (no status) — keep existing user from localStorage
+        // This handles Render's 50s cold start without logging user out
+        setLoading(false);
+      });
   }, []);
 
   const login = (userData, accessToken, refreshToken) => {
