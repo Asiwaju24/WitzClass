@@ -220,3 +220,58 @@ select.form-control { cursor: pointer; }
   .main-content { margin-left: 0; }
   .page { padding: 16px; }
 }
+/* Mobile Header */
+.mobile-header {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 56px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  z-index: 100;
+}
+
+.hamburger {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text);
+  padding: 4px;
+}
+
+.mobile-logo {
+  font-weight: 800;
+  font-size: 18px;
+  color: var(--primary);
+}
+
+.mobile-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 200;
+}
+
+.mobile-menu {
+  background: var(--surface);
+  width: 280px;
+  height: 100%;
+  padding: 24px 16px;
+  overflow-y: auto;
+}
+
+.desktop-topbar {
+  display: flex;
+}
+
+@media (max-width: 768px) {
+  .sidebar { display: none !important; }
+  .mobile-header { display: flex !important; }
+  .mobile-overlay { display: block !important; }
+  .main-content { margin-left: 0 !important; padding-top: 56px; }
+  .desktop-topbar { display: none !important; }
+  }
