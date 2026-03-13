@@ -11,3 +11,9 @@ python-decouple==3.8
 dj-database-url==2.1.0
 Pillow==10.3.0
 psycopg2-binary
+
+cloudinary
+django-cloudinary-storage
+
+cloudinary
+django-cloudinary-storage

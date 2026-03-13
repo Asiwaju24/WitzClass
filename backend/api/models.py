@@ -90,7 +90,9 @@ class Assignment(models.Model):
     has_deadline = models.BooleanField(default=True)
     due_date = models.DateTimeField(null=True, blank=True)
     allow_late = models.BooleanField(default=False)
-    is_open = models.BooleanField(default=True)  # teacher manually closes
+    is_open = models.BooleanField(default=True)
+    assignment_file = models.FileField(upload_to='assignments/', blank=True, null=True)
+    assignment_file = models.FileField(upload_to='assignments/', blank=True, null=True)  # teacher manually closes
 
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -124,6 +126,8 @@ class Submission(models.Model):
 
     note = models.TextField(blank=True)
     submitted_at = models.DateTimeField(auto_now_add=True)
+    submission_file = models.FileField(upload_to='submissions/', blank=True, null=True)
+    submission_file = models.FileField(upload_to='submissions/', blank=True, null=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='submitted')
 
     # Grading
